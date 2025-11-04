@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brian's Brain</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            overflow: hidden;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(30, 30, 30, 0.95);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            color: white;
+            min-width: 280px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #00ff00;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .play-btn {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .play-btn:hover {
+            background: #1d4ed8;
+        }
+        
+        .reset-btn {
+            background: #4b5563;
+            color: white;
+        }
+        
+        .reset-btn:hover {
+            background: #374151;
+        }
+        
+        .random-btn {
+            background: #16a34a;
+            color: white;
+        }
+        
+        .random-btn:hover {
+            background: #15803d;
+        }
+        
+        .slider-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 5px;
+            color: #d1d5db;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #4b5563;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .legend {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #4b5563;
+            font-size: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="controls">
+        <h1>Brian's Brain</h1>
+        
+        <div class="button-group">
+            <button id="playBtn" class="play-btn">開始</button>
+            <button id="resetBtn" class="reset-btn">リセット</button>
+            <button id="randomBtn" class="random-btn">ランダム</button>
+        </div>
+        
+        <div class="slider-group">
+            <label>速度: <span id="speedValue">50</span> FPS</label>
+            <input type="range" id="speedSlider" min="10" max="120" value="50">
+        </div>
+        
+        <div class="slider-group">
+            <label>セルサイズ: <span id="cellSizeValue">4</span>px</label>
+            <input type="range" id="cellSizeSlider" min="2" max="10" value="4">
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #00ff00;"></div>
+                <span>生きているセル</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #0088ff;"></div>
+                <span>死にかけのセル</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const playBtn = document.getElementById('playBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const randomBtn = document.getElementById('randomBtn');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        const cellSizeSlider = document.getElementById('cellSizeSlider');
+        const cellSizeValue = document.getElementById('cellSizeValue');
+        
+        let isRunning = false;
+        let speed = 50;
+        let cellSize = 4;
+        let grid = null;
+        let animationId = null;
+        let lastUpdate = 0;
+        
+        const CELL_STATES = {
+            OFF: 0,
+            ON: 1,
+            DYING: 2
+        };
+        
+        function initializeGrid(width, height) {
+            const cols = Math.floor(width / cellSize);
+            const rows = Math.floor(height / cellSize);
+            const newGrid = [];
+            
+            for (let i = 0; i < rows; i++) {
+                newGrid[i] = [];
+                for (let j = 0; j < cols; j++) {
+                    const rand = Math.random();
+                    if (rand < 0.1) {
+                        newGrid[i][j] = CELL_STATES.ON;
+                    } else if (rand < 0.15) {
+                        newGrid[i][j] = CELL_STATES.DYING;
+                    } else {
+                        newGrid[i][j] = CELL_STATES.OFF;
+                    }
+                }
+            }
+            
+            return newGrid;
+        }
+        
+        function countNeighbors(grid, x, y) {
+            let count = 0;
+            const rows = grid.length;
+            const cols = grid[0].length;
+            
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    if (i === 0 && j === 0) continue;
+                    const newX = (x + i + rows) % rows;
+                    const newY = (y + j + cols) % cols;
+                    if (grid[newX][newY] === CELL_STATES.ON) {
+                        count++;
+                    }
+                }
+            }
+            return count;
+        }
+        
+        function updateGrid(grid) {
+            const rows = grid.length;
+            const cols = grid[0].length;
+            const newGrid = [];
+            
+            for (let i = 0; i < rows; i++) {
+                newGrid[i] = [];
+                for (let j = 0; j < cols; j++) {
+                    const current = grid[i][j];
+                    const neighbors = countNeighbors(grid, i, j);
+                    
+                    if (current === CELL_STATES.OFF && neighbors === 2) {
+                        newGrid[i][j] = CELL_STATES.ON;
+                    } else if (current === CELL_STATES.ON) {
+                        newGrid[i][j] = CELL_STATES.DYING;
+                    } else {
+                        newGrid[i][j] = CELL_STATES.OFF;
+                    }
+                }
+            }
+            
+            return newGrid;
+        }
+        
+        function drawGrid(grid) {
+            const rows = grid.length;
+            const cols = grid[0].length;
+            
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (grid[i][j] === CELL_STATES.ON) {
+                        ctx.fillStyle = '#00ff00';
+                        ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+                    } else if (grid[i][j] === CELL_STATES.DYING) {
+                        ctx.fillStyle = '#0088ff';
+                        ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+                    }
+                }
+            }
+        }
+        
+        function animate(timestamp) {
+            const interval = 1000 / speed;
+            
+            if (timestamp - lastUpdate >= interval) {
+                grid = updateGrid(grid);
+                drawGrid(grid);
+                lastUpdate = timestamp;
+            }
+            
+            if (isRunning) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (!grid) {
+                grid = initializeGrid(canvas.width, canvas.height);
+            }
+            drawGrid(grid);
+        }
+        
+        function reset() {
+            isRunning = false;
+            playBtn.textContent = '開始';
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            grid = initializeGrid(canvas.width, canvas.height);
+            drawGrid(grid);
+        }
+        
+        function randomize() {
+            grid = initializeGrid(canvas.width, canvas.height);
+            drawGrid(grid);
+        }
+        
+        playBtn.addEventListener('click', () => {
+            isRunning = !isRunning;
+            playBtn.textContent = isRunning ? '停止' : '開始';
+            
+            if (isRunning) {
+                lastUpdate = performance.now();
+                animationId = requestAnimationFrame(animate);
+            } else if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        });
+        
+        resetBtn.addEventListener('click', reset);
+        randomBtn.addEventListener('click', randomize);
+        
+        speedSlider.addEventListener('input', (e) => {
+            speed = parseInt(e.target.value);
+            speedValue.textContent = speed;
+        });
+        
+        cellSizeSlider.addEventListener('input', (e) => {
+            cellSize = parseInt(e.target.value);
+            cellSizeValue.textContent = cellSize;
+            reset();
+        });
+        
+        window.addEventListener('resize', resizeCanvas);
+        
+        resizeCanvas();
+    </script>
+</body>
+</html>
