@@ -26,13 +26,46 @@
         .controls {
             position: fixed;
             top: 20px;
-            left: 20px;
+            left: 60px;
             background: rgba(30, 30, 30, 0.95);
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
             color: white;
             min-width: 280px;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            z-index: 100;
+        }
+        
+        .controls.hidden {
+            transform: translateX(-400px);
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .toggle-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(30, 30, 30, 0.95);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        
+        .toggle-btn:hover {
+            background: rgba(50, 50, 50, 0.95);
+            transform: scale(1.1);
         }
         
         h1 {
@@ -153,6 +186,8 @@
 <body>
     <canvas id="canvas"></canvas>
     
+    <button id="toggleBtn" class="toggle-btn shifted">☰</button>
+    
     <div class="controls">
         <h1>Brian's Brain</h1>
         
@@ -194,6 +229,8 @@
         const speedValue = document.getElementById('speedValue');
         const cellSizeSlider = document.getElementById('cellSizeSlider');
         const cellSizeValue = document.getElementById('cellSizeValue');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const controls = document.querySelector('.controls');
         
         let isRunning = false;
         let speed = 50;
@@ -201,6 +238,7 @@
         let grid = null;
         let animationId = null;
         let lastUpdate = 0;
+        let controlsVisible = true;
         
         const CELL_STATES = {
             OFF: 0,
@@ -354,6 +392,19 @@
             cellSize = parseInt(e.target.value);
             cellSizeValue.textContent = cellSize;
             reset();
+        });
+        
+        toggleBtn.addEventListener('click', () => {
+            controlsVisible = !controlsVisible;
+            if (controlsVisible) {
+                controls.classList.remove('hidden');
+                toggleBtn.classList.add('shifted');
+                toggleBtn.textContent = '☰';
+            } else {
+                controls.classList.add('hidden');
+                toggleBtn.classList.remove('shifted');
+                toggleBtn.textContent = '▶';
+            }
         });
         
         window.addEventListener('resize', resizeCanvas);
